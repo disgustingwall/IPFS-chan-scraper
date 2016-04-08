@@ -1,0 +1,28 @@
+{
+  "name": "IPFSchan",
+  "version": "1.0",
+  "description": "",
+  "main": "./bin/server/server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "4.13.3",
+    "ipfs-api": "2.9.13",
+    "mkdir-p": "x",
+    "body-parser": "x",
+    "multer": "x"
+  },
+  "engines": {
+    "node": "^4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/disgustingwall/IPFSchan/"
+  },
+  "keywords": [
+    "node",
+    "express"
+  ],
+  "license": ""
+}

@@ -1,0 +1,1224 @@
+<html>
+	<head>
+		<script src="https://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha3.js"></script>
+		<script src="https://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script>
+		<title>IPFSchan</title>
+		<style>
+.link
+{
+	cursor: pointer;
+	color: blue;
+}
+
+.link:hover, .link.hover
+{
+	text-decoration: underline;
+}
+
+.postHolder
+{
+	width: 500px;
+	margin-bottom: 10px;
+	display: block;
+	background-color: lightgrey;
+	word-break: keep-all;
+}
+
+video, img, audio
+{
+	padding: 10px;
+}
+</style>
+	</head>
+	<body style="margin:0;">
+		<div id="content" style="margin:8;">
+			<div id="welcome"><p>welcome to IPFSchan</p></div>
+			<br />
+			<div id="postForm">
+				<p>
+					<span style="display:flex;">Files: </span>
+					<input type="file" id="userFiles" name="files[]" multiple />
+				</p>
+				<p>
+					<span style="display:flex;">Nickname: </span>
+					<input type="text" name="nickname" id="nickname" />
+				</p>
+				<p>
+					<span style="display:flex;">Channel: </span>
+					<input type="text" name="channel" id="channel" />
+					<br />
+					<span style="display:flex;">Channel password: </span>
+					<input type="password" name="channelPassword" id="channelPassword" />
+				</p>
+				<p>
+					<span style="display:flex;">Post text: </span>
+					<textarea name="postText" id="postText" placeholder="Your text here" rows="2" cols="35"></textarea>
+				</p>
+				<p>
+					<input type="submit" value="Submit" id="submit" name="submit">
+				</p>
+			</div>
+			<div id="postResponse"></div>
+			<br />
+			<div id="posts"></div>
+			<br />
+			<div id="loadNextHolder">
+				<span id="loadNextSpan" style="border-color: red; border-style:; display: none;">
+					<button id="loadNext" onclick="loadNext(true)" class="loadnext">Load More Posts</button>
+				</span>
+				<span id="loadNextDisabled" style="display:none">Either there is no more history, or the post history is still loading</span>
+			</div>
+			<div id="updateControlsHolder">
+				<span id="autoUpdateHolder">
+					<input type="checkbox" id="autoUpdate" onclick="refreshNewestMailbox()" checked>Automatically query for new posts
+				</span>
+				<span id="autoLoadPostsHolder">
+					<input type="checkbox" id="autoLoadPosts" checked>Automatically queue new posts
+				</span>
+				<span id="refreshNewestHolder">
+					<span id="refreshNewest" onclick="refreshNewestMailbox()" class="link">Refresh</span>
+				</span>
+			</div>
+			<div id="viewControlsHolder">
+				<span id="treeViewHolder">
+					<input type="checkbox" id="treeView">Tree View
+				</span>
+			</div>
+			<div id="newPostsHolder" style="position: fixed; bottom: 0; right: 0; display: none;">
+				<!-- span as button to load new mailbox -->
+				<span onclick='queueNewMailbox();' id="newPosts" class="link">New posts available; Click here to queue them</span>
+			</div>
+			<div id="bottom"><p>Have a nice day</p></div>
+		</div>
+		<div id="newPostAlertHolder" style="display: none;">
+			<a href="#loadNext" id="newPostAlert" style="width: 100%; height: 5px; background: red; position: fixed; bottom: 0;" onclick="loadNext(true)"></a>
+		</div>
+		<script>
+var foundSite = false;
+
+var lastLoadedPost = 0;
+
+var newestMailbox = "";
+var currentSite = undefined;
+
+var postList = [];
+var globalMailboxes = [];
+//TODO: add to list from IPNS, current domain, or these hosts?
+var siteList = ["http://localhost:12462", "https://ipfschan.herokuapp.com"];
+
+var postText = {};
+
+
+function escapeHTML(text)
+{
+	var entityMap = {
+		"&": "&amp;",
+		"<": "&lt;",
+		">": "&gt;",
+		'"': '&quot;',
+		"'": '&#39;',
+		"/": '&#x2F;'
+	};
+	return String(text).replace(/[&<>"'\/]/g, function (s) {
+		return entityMap[s];
+	});
+}
+
+function getProtocol()
+{
+	return window.location.protocol + "//";
+}
+
+function getDomain()
+{
+	return window.location.hostname;
+}
+
+function getPort()
+{
+	return window.location.port;
+}
+
+function getProtocolAndDomain()
+{
+	var returnString = getProtocol() + getDomain();
+	var port = getPort();
+	
+	if (port)
+	{
+		returnString += ":" + getPort();
+	}
+	
+	return returnString;
+}
+
+function showLoadNextButton()
+{
+	document.getElementById("loadNextSpan").style.display = "";
+	document.getElementById("loadNextDisabled").style.display = "none";
+	
+	//TODO: this is sometimes inappropriate; if the user hasn't loaded the posts yet this shouldn't be hidden
+	//document.getElementById("newPostsHolder").style.display = "none";
+}
+
+function hideLoadNextButton()
+{
+	document.getElementById("loadNextSpan").style.display = "none";
+	document.getElementById("loadNextDisabled").style.display = "";
+}
+
+function shouldItBeHTTPS(protocol)
+{
+	pageProtocol = getProtocol();
+	
+	if (pageProtocol === "https://")
+	{
+		return "https://";
+	}
+	else
+	if (pageProtocol === "http://")
+	{
+		return "http://";
+	}
+	else
+	if (protocol === "" || protocol.replace(/\w(:\/\/).*/, "$1") !== "://")
+	{
+		//if blank or not a protocol, return at least http://
+		//TODO: should this be https
+		return "http://";
+	}
+	else
+	{
+		return protocol;
+	}
+}
+
+//TODO: switch "extra" and "error"
+//TODO: rename "extra"
+function webRequest(url, func, extra, error)
+{
+	if (error === undefined)
+	{
+		error = function () {};
+	}
+	
+	//make sure http(s)? matches current page
+	realURL = shouldItBeHTTPS(url.replace(/(.*:\/\/)?(.+(\.|:).+)/, "$1")) + url.replace(/(.*:\/\/)?(.+(\.|:).+)/, "$2");
+	
+	//console.log(url);
+	//console.log(realURL);
+	
+	var request = new XMLHttpRequest();
+	request.onreadystatechange = function() {
+		if (request.readyState == 4)
+		{
+			if (request.status == 200)
+			{
+				func(request.responseText, extra, realURL);
+			}
+			else
+			{
+				error(extra, realURL);
+			}
+		}
+	}
+	
+	request.open("GET", realURL);
+	try
+	{
+		request.send();
+	}
+	catch (e)
+	{
+		error(request.responseText, extra, url, e);
+	}
+}
+
+function reccommendSite(url)
+{
+	currentSite = url;
+	setup(false);
+}
+
+function loadNextServer(parameterObject)
+{
+	if (!parameterObject)
+	{
+		parameterObject = {};
+	}
+	
+	if (!parameterObject.hasOwnProperty("currentSiteLocation"))
+	{
+		parameterObject["currentSiteLocation"] = -1;
+	}
+	
+	var currentSiteLocation = parameterObject["currentSiteLocation"];
+	var nextSiteLocation;
+	
+	if (currentSiteLocation >= siteList.length || currentSiteLocation < 0)
+	{
+		var currentSiteLocation = siteList.indexOf(getProtocolAndDomain());
+	}
+	
+	//if list of sites contains current site
+	if (currentSiteLocation >= 0 && currentSiteLocation + 1 < siteList.length)
+	{
+		//test next site
+		nextSiteLocation = currentSiteLocation + 1;
+	}
+	else
+	{
+		//test first element in the site list
+		nextSiteLocation = 0;
+	}
+	
+	reccommendSite(siteList[nextSiteLocation]);
+	setTimeout(loadSite, 1000, siteList[nextSiteLocation]);
+}
+
+function renderFileCallback(responseText, extra)
+{
+	if (responseText && extra.hasOwnProperty("nextPartHashIndex") && extra["nextPartHashIndex"] >= 0)
+	{
+		//if everything is valid, not all file parts are downloaded
+		postText[extra["postJSON"]["files"][extra["fileIndex"]]["content"][extra["nextPartHashIndex"]]] = responseText;
+		return renderFile(JSON.stringify(extra["postJSON"]), extra["fileIndex"], extra["replaceID"]);
+	}
+	else
+	{
+		//if something is invalid, we probably have all the file parts
+		var fileContent = "";
+		var displayContent = ""
+		
+		//build fileContent from the various hashes
+		for(var i = 0; i < extra["postJSON"]["files"][extra["fileIndex"]]["content"].length; i++)
+		{
+			var tmpFileContent;
+			try
+			{
+				tmpFileContent = JSON.parse(decryptToChannel(postText[extra["postJSON"]["files"][extra["fileIndex"]]["content"][i]]))["content"];
+			}
+			catch (e)
+			{
+				console.log(e);
+				continue;
+			}
+			
+			fileContent += tmpFileContent;
+		}
+		
+		
+		var fileMatches = fileContent.toString().match(/(data:)?(((\w+)\/\w+)(;charset=.*)?)?(;base64)?,(.*)/);
+		
+		if (fileMatches[1] === "data:" && (fileMatches[4] === "video" || fileMatches[4] === "image" || fileMatches[4] === "audio"))
+		{
+			displayContent = "<p>File: " + extra["replaceID"] + " (" + fileMatches[3] + ")</p>";
+			
+			//video embed
+			if (fileMatches[4] === "video")
+			{
+				displayContent += '<video controls style="max-width:90%; min-width: 230px;"><source src="' + fileContent + '" type="' + fileMatches[3] + '"></video>';
+			}
+			else
+			//image embed
+			if (fileMatches[4] === "image")
+			{
+				//TODO: use title as alt?
+				displayContent += "<img src='" + fileContent + "' style='max-width:90%;' alt='" + fileMatches[3] + "' />";
+			}
+			else
+			//audio embed
+			if (fileMatches[4] === "audio")
+			{
+				displayContent += "<audio controls><source src='" + fileContent + "' type='" + fileMatches[3] + "'></audio>";
+			}
+		}
+		else
+		{
+			//TODO: test to make sure "compressed posts" load
+			//if not empty file
+			if (fileContent)
+			{
+				//just do direct replacement with no modification other than adding <br>s
+				//TODO: process this like a real post
+				displayContent = escapeHTML(displayContent);
+				displayContent += "<p>" + fileContent.replace(/\n/, "<br />") + "</p>";
+			}
+			else
+			{
+				displayContent = "<p>Empty file</p>";
+			}
+		}
+		
+		
+		//while loop to replace all instances
+		while(document.getElementById(extra["replaceID"]) !== null)
+		{
+			//create html element
+			var newDiv = document.createElement('div');
+			newDiv.style.wordBreak = "keep-all";
+			newDiv.innerHTML = displayContent;
+			
+			//insert the final html
+			document.getElementById(extra["replaceID"]).parentNode.insertBefore(newDiv, document.getElementById(extra["replaceID"]));
+			//remove the link so nobody loads an infinite number of files
+			document.getElementById(extra["replaceID"]).remove();
+		}
+		
+		return true;
+	}
+	
+	return false;
+}
+
+function renderFile(postJSON, fileIndex, replaceID)
+{
+	try
+	{
+		postJSON = JSON.parse(postJSON);
+	}
+	catch (e)
+	{
+		console.log(e);
+		return false;
+	}
+	
+	var nextPart = "";
+	var nextPartHashIndex = -1;
+	var allPartsDownloaded = true;
+	
+	for (var i = 0; i < postJSON["files"][fileIndex]["content"].length; i++)
+	{
+		if(!postText.hasOwnProperty(postJSON["files"][fileIndex]["content"][i]))
+		{
+			allPartsDownloaded = false;
+			nextPart = postJSON["files"][fileIndex]["content"][i];
+			nextPartHashIndex = i;
+			break;
+		}
+	}
+	
+	var extra = {};
+	extra["postJSON"] = postJSON;
+	extra["fileIndex"] = fileIndex;
+	extra["replaceID"] = replaceID;
+	extra["nextPartHashIndex"] = nextPartHashIndex;
+	
+	if (allPartsDownloaded)
+	{
+		return renderFileCallback("", extra);
+	}
+	else
+	{
+		return webRequest(getProtocolAndDomain() + "/ipfs/" + nextPart, renderFileCallback, extra);
+	}
+}
+
+function appendPost(postContent, postHash, postReferenceHashes)
+{
+	var newDiv = document.createElement('div');
+	
+	newDiv.className="postHolder";
+	newDiv.id = postHash;
+	newDiv.innerHTML =  "<a href='#" + postHash + "' class='post_anchor'>" + postHash + "</a><br />" + "<p>" + postContent + "</p>";
+	
+	var insertBeforeElement = null;
+	var margin;
+	
+	
+	if(document.getElementById("treeView").checked)
+	{
+		if (postReferenceHashes)
+		{
+			//find first extant reference
+			for(var i = 0; i < postReferenceHashes.length; i++)
+			{
+				insertBeforeElement = document.getElementById(postReferenceHashes[i]);
+				if (insertBeforeElement !== null)
+				{
+					break;
+				}
+			}
+		}
+		
+		
+		if (insertBeforeElement !== null)
+		{
+			margin = parseInt(window.getComputedStyle(insertBeforeElement, null).getPropertyValue('margin-left').replace(/(\d*).*/, "$1")) + 20;
+			//insertBeforeElement is the node we want the post to be after, so we must move one down
+			insertBeforeElement = insertBeforeElement.nextSibling;
+		}
+	}
+	
+	
+	if (margin)
+	{
+		newDiv.style.marginLeft = margin + "px";
+	}
+	
+	document.getElementById("posts").insertBefore(newDiv, insertBeforeElement);
+	
+	
+	if (globalMailboxes.length <= 0 && postList.length <= lastLoadedPost)
+	{
+		hideLoadNextButton();
+	}
+	else
+	{
+		showLoadNextButton();
+	}
+	
+	//TODO: toggle based on global variable/cookie/checkbox
+	return document.getElementById(postHash).scrollIntoView();
+}
+
+function decryptToChannel(message)
+{
+	var channel = document.getElementById("channel").value;
+	var channelPassword = document.getElementById("channelPassword").value;
+	
+	try
+	{
+		return CryptoJS.AES.decrypt(message, channelPassword.toString() + channel.toString()).toString(CryptoJS.enc.Utf8);
+	}
+	catch (e)
+	{
+		console.log(e);
+	}
+	
+	return "";
+}
+
+function renderPost(responseText, extra)
+{
+	var postReferenceHashes;
+	var responseContent = responseText;
+	var postContent = "";
+	
+	responseContent = decryptToChannel(responseContent);
+	
+	
+	try
+	{
+		postObject = JSON.parse(responseContent);
+	}
+	catch (e)
+	{
+		return loadNext(true);
+	}
+	
+	if (postObject.hasOwnProperty("type") && postObject["type"] == "ipfschan.post")
+	{
+		if (postObject.hasOwnProperty("content"))
+		{
+			postObject["content"] = escapeHTML(postObject["content"]);
+		}
+		if (postObject.hasOwnProperty["user"])
+		{
+			postObject["user"] = escapeHTML(postObject["user"]);
+		}
+		
+		postText[postList[extra["index"]]] = JSON.stringify(postObject);
+		
+		
+		var postReferencesMatches = postObject["content"].match(/(&gt;&gt;(\w{46}))/g);
+		
+		
+		if (postReferencesMatches)
+		{
+			postReferenceHashes = [];
+			
+			postReferencesMatches.forEach(function(element, index) {
+				postReferenceHashes[postReferenceHashes.length] = element.replace(/(&gt;&gt;(\w{46}))/g, "$2");
+			});
+			
+			postReferenceHashes.forEach(function(element, index) {
+				postList[postList.length] = element;
+				postList = postList.filter(function(element, position, array) {
+					return array.indexOf(element) === position;
+				});
+			});
+		}
+		
+		//regexes are to process raw text
+		//make newlines into <br>s
+		//delete empty hash from >>postreferences
+		//include <a> links when >>postreferences appear
+		postContent = postObject["content"].replace(/\n/g, "<br />").replace(/&gt;&gt;QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH/g, "").replace(/(&gt;&gt;(\w{46}))/g, "<a href='#$2'>$1</a>");
+		
+		
+		if (postObject.hasOwnProperty("user") && postObject["user"])
+		{
+			if (postContent)
+			{
+				postContent = postObject["user"] + " : " + postContent;
+			}
+			else
+			{
+				postContent = postObject["user"] + postContent;
+			}
+		}
+		
+		if (postObject.hasOwnProperty("time") && !isNaN(postObject["time"]))
+		{
+			if (postContent)
+			{
+				postContent = new Date(postObject["time"]) + " : " + postContent;
+			}
+			else
+			{
+				postContent = new Date(postObject["time"]) + postContent;
+			}
+		}
+		
+		
+		postContent = "<p>" + postContent + "</p>";
+		
+		//add file objects
+		//TODO: replicate this in renderFile so that doubly compressed posts load properly
+		for (var i = 0; i < postObject["files"].length; i++)
+		{
+			var randomText = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);
+			var uniqueID = escapeHTML(postObject["files"][i]["title"] + "-" + randomText);
+			postContent = "<div id='" + uniqueID + "' onclick=\"renderFile('" + escapeHTML(JSON.stringify(postObject)) + "', " + i + ", \'" + uniqueID + "\')\" class='link'>" + escapeHTML(postObject["files"][i]["title"]) + "</div>" + postContent;
+		}
+		
+		//TODO: only append / scroll to if date is newer than variable setting or user has enabled historic posts
+		if (postContent !== "" && postContent.length > 0)
+		{
+			return appendPost(postContent, postList[extra["index"]], postReferenceHashes);
+		}
+	}
+	
+	return loadNext(true);
+}
+
+function renderPosts(start, end)
+{
+	if (end === undefined)
+	{
+		end = postList.length;
+	}
+	
+	for(var i = start; i < end; i++)
+	{
+		webRequest(getProtocolAndDomain() + "/ipfs/" + postList[i], renderPost, {"index":i})
+	}
+	
+	lastLoadedPost = end;
+}
+
+function renderMailbox(responseText, parameterObject, continueUntilPost, continueForever)
+{
+	if (continueUntilPost === undefined)
+	{
+		continueUntilPost = false;
+	}
+	
+	if (continueForever === undefined)
+	{
+		continueForever = false;
+	}
+	
+	
+	var originalPostListLength = postList.length;
+	var responseObject = JSON.parse(responseText);
+	var mailboxes = parameterObject["mailboxes"];
+	
+	
+	if (parameterObject["continueUntilPost"] !== undefined)
+	{
+		continueUntilPost = parameterObject["continueUntilPost"];
+	}
+	
+	if (parameterObject["continueForever"] !== undefined)
+	{
+		continueForever = parameterObject["continueForever"];
+	}
+	
+	if (responseObject.hasOwnProperty("o"))
+	{
+		for(var i = 0; i < responseObject["o"].length; i++)
+		{
+			mailboxes[mailboxes.length] = responseObject["o"][i];
+		}
+	}
+	
+	if (responseObject.hasOwnProperty("n"))
+	{
+		for(var i = 0; i < responseObject["n"].length; i++)
+		{
+			postList[postList.length] = responseObject["n"][i];
+			postList = postList.filter(function(element, position, array) {
+				return array.indexOf(element) === position;
+			});
+		}
+	}
+	
+	
+	//clear duplicates from mailboxes
+	mailboxes = mailboxes.filter(function(element, position, array) {
+		return array.indexOf(element) === position;
+	});
+	//clear blanks from mailboxes
+	mailboxes = mailboxes.filter(function(element, position, array) {
+		if (element.length !== 46)
+		{
+			return false;
+		}
+		return true;
+	});
+	//clear duplicates from postList
+	postList = postList.filter(function(element, position, array){
+		return array.indexOf(element) === position;
+	});
+	
+	globalMailboxes = mailboxes;
+	
+	
+	//finally,
+	//if the content received was only a mailbox,
+	//or if we are continuing a loadNext streak
+	//or if user wants to load all possible posts
+	if (postList.length <= originalPostListLength || continueUntilPost || continueForever)
+	{
+		//load next mailbox
+		loadNext(continueUntilPost, continueForever);
+	}
+}
+
+function getMailbox(mailboxes, continueUntilPost, continueForever)
+{
+	if (continueUntilPost === undefined)
+	{
+		continueUntilPost = false;
+	}
+	
+	if (continueForever === undefined)
+	{
+		continueForever = false;
+	}
+	
+	
+	//save newest entry in newMailbox and remove it from array
+	var newMailbox = mailboxes.shift();
+	var parameterObject = {};
+	
+	parameterObject["mailboxes"] = mailboxes;
+	parameterObject["continueUntilPost"] = continueUntilPost;
+	parameterObject["continueForever"] = continueForever;
+	
+	webRequest(getProtocolAndDomain() + "/ipfs/" + newMailbox, renderMailbox, parameterObject);
+}
+
+function loadNext(continueUntilPost, continueForever, loadAll)
+{
+	if (continueUntilPost === undefined)
+	{
+		continueUntilPost = false;
+	}
+	
+	if (continueForever === undefined)
+	{
+		continueForever = false;
+	}
+	
+	if (loadAll === undefined)
+	{
+		loadAll = false;
+	}
+	
+	
+	document.getElementById("loadNextSpan").style["border-style"]="";
+	document.getElementById("newPostAlertHolder").style.display = "none";
+	
+	//if there are posts to load...
+	if (lastLoadedPost < postList.length)
+	{
+		//load the newest post(s)
+		var end;
+		
+		//if not loading all...
+		if (!loadAll)
+		{
+			//set the end to one more than the start
+			end = lastLoadedPost + 1;
+		}
+		//otherwise, end will remain undefined and renderPosts will reassign it to the length of the entire list
+		
+		renderPosts(lastLoadedPost, end);
+	}
+	//only load mailboxes if there are no new posts left
+	else
+	if (globalMailboxes.length > 0)
+	{
+		getMailbox(globalMailboxes, continueUntilPost);
+	}
+	//if there's nothing to load, hide the button
+	else
+	{
+		hideLoadNextButton();
+	}
+}
+
+function queueNewMailbox()
+{
+	var parameterObject = {};
+	parameterObject["delay"] = 5 * 1000;
+	
+	//add newest to front
+	globalMailboxes.unshift(newestMailbox);
+	
+	setTimeout(refreshNewestMailbox, parameterObject["delay"], {"delay": Math.floor(parameterObject["delay"] * 1.5)});
+	
+	showLoadNextButton();
+	document.getElementById("loadNextSpan").style["border-style"] = "solid";
+	document.getElementById("newPostAlertHolder").style.display = "";
+	document.getElementById("newPostsHolder").style.display = "none";
+}
+
+function storeNewestMailbox(hash, parameterObject)
+{
+	if (!parameterObject)
+	{
+		parameterObject = {};
+	}
+	
+	if (!parameterObject.hasOwnProperty("delay"))
+	{
+		parameterObject["delay"] = 5 * 1000;
+	}
+	
+	var oldMailbox = newestMailbox;
+	newestMailbox = hash;
+	
+	if (newestMailbox != oldMailbox)
+	{
+		if (document.getElementById("autoLoadPosts").checked)
+		{
+			queueNewMailbox();
+		}
+		else
+		{
+			document.getElementById("newPostsHolder").style.display = "";
+		}
+	}
+	else
+	{
+		if (document.getElementById("autoUpdate").checked)
+		{
+			setTimeout(refreshNewestMailbox, parameterObject["delay"], {"delay": Math.floor(parameterObject["delay"] * 1.5)});
+		}
+	}
+}
+
+function refreshNewestMailbox(parameterObject)
+{
+	var siteToLoadFrom = currentSite;
+	
+	if (!foundSite || siteToLoadFrom === undefined || siteToLoadFrom === "")
+	{
+		siteToLoadFrom = getProtocolAndDomain();
+	}
+	
+	webRequest(siteToLoadFrom + "/newest", storeNewestMailbox, parameterObject);
+}
+
+function getNewestMailbox(responseText, parameterObject)
+{
+	if (responseText.length === 46)
+	{
+		//if we were searching for a site until now, we should do a final setup to finalize all those settings
+		if (foundSite === false)
+		{
+			setup(false);
+		}
+		
+		
+		//if we're here, it means we're done loading sites
+		foundSite = true;
+		storeNewestMailbox(responseText, parameterObject);
+		getMailbox([responseText]);
+	}
+	else
+	{
+		loadNextServer(parameterObject);
+	}
+}
+
+function loadSite(site)
+{
+	webRequest(site + "/newest", getNewestMailbox, {"currentSiteLocation": siteList.indexOf(site)}, loadNextServer);
+}
+
+function postResponseClear(id)
+{
+	document.getElementById(id).remove();
+	
+	
+	if (document.getElementById("autoUpdate").checked)
+	{
+		setTimeout(refreshNewestMailbox, 1000);
+	}
+}
+
+function postResponseDisplay(text)
+{
+	var newDiv = document.createElement('div');
+	var randomId = "postResponse_" + Math.random() * Math.pow(10, 16);
+	
+	
+	newDiv.id = randomId;
+	newDiv.innerHTML = text;
+	
+	
+	document.getElementById("postResponse").appendChild(newDiv);
+	setTimeout(postResponseClear, 10000, randomId);
+}
+
+function postButtonListener(ev)
+{
+	//pull potentially time-sensitive data
+	var postTextElement = document.getElementById("postText");
+	var content = postTextElement.value;
+	var channel = document.getElementById("channel").value;
+	var channelPassword = document.getElementById("channelPassword").value;
+	var siteToLoadFrom = currentSite;
+	var nickname = document.getElementById("nickname").value;
+	var fileElement = document.getElementById("userFiles").files;
+	
+	
+	if (!foundSite || siteToLoadFrom === undefined || siteToLoadFrom === "")
+	{
+		siteToLoadFrom = getProtocolAndDomain();
+	}
+	
+	
+	
+	postResponseDisplay("<p>Beginning upload</p>");
+	
+	
+	var files = [];
+	var cutOff = Math.pow(2, 18);
+	var firstFileRun = true;
+	
+	
+	//functions
+	var partition;
+	var subcol;
+	var partchk;
+	var addcol;
+	var postEncryptAndSend;
+	var getHashes;
+	var getFiles;
+	
+	partition = function (file)
+	{
+		var theFile = file;
+		
+		var fileParts = [];
+		
+		
+		//while final file size is above 262 KB
+		while(theFile.toString().length > cutOff)
+		{
+			fileParts[fileParts.length] = theFile.substr(0, cutOff);
+			theFile = theFile.substr(cutOff);
+		}
+		
+		//add final part
+		fileParts[fileParts.length] = theFile;
+		
+		return fileParts;
+	}
+	
+	partchk = function()
+	{
+		var tooLarge = false;
+		for (var i = 1; i < files.length; i++)
+		{
+			if (files[i].toString().length > cutOff)
+			{
+				tooLarge = true;
+				files[i] = partition(files[i]);
+			}
+		}
+		if (tooLarge)
+		{
+			return subcol();
+		}
+		else
+		{
+			return addcol();
+		}
+	}
+	
+	subcol = function()
+	{
+		for (var i = 1; i < files.length; i++)
+		{
+			if(files[i].constructor === Array)
+			{
+				return getHashes("", i);
+			}
+		}
+		return partchk();
+	}
+	
+	addcol = function()
+	{
+		var jsonObject = {};
+		jsonObject["content"] = files[0];
+		files[0] = jsonObject;
+		files[0]["type"] = "ipfschan.post";
+		files[0]["files"] = [];
+		for (var i = 0; files.length - 1 > 0; i++)
+		{
+			files[0]["files"][i] = JSON.parse(files.splice(files.length - 1));
+		}
+		//TODO: only fill header if timestamps are turned on
+		files[0]["time"] = Date.now();
+		if (nickname)
+		{
+			nickname = escapeHTML(nickname);
+			files[0]["user"] = nickname;
+		}
+		files[0] = JSON.stringify(files[0]);
+		
+		if (files[0].toString().length > cutOff)
+		{
+			firstFileRun = false;
+			files[1] = files[0];
+			files[0] = "compressed post";
+			return partchk();
+		}
+		else
+		{
+			return getHashes("", 0);
+		}
+	}
+	
+	postEncryptAndSend = function (postText, callback, extra)
+	{
+		if (callback === undefined)
+		{
+			callback = function(){return;}
+		}
+		
+		
+		var encrypted = CryptoJS.AES.encrypt(postText.toString(), channelPassword.toString() + channel.toString());
+		var encryptedContent = encrypted.toString();
+		
+		var data = new FormData();
+		data.append("postText", encryptedContent);
+		
+		
+		var request = new XMLHttpRequest();
+		request.open("POST", siteToLoadFrom + "/uploaded", true);
+		request.onload = function(oEvent) {
+			if (request.readyState == 4 && request.status == 200) {
+				var responseObject = JSON.parse(request.responseText);
+				var postResponseText = "<p>Part successfully uploaded<br />Hash: " + responseObject["t"] + "</p>";
+				
+				postResponseDisplay(postResponseText);
+				
+				return callback(responseObject["t"], extra);
+			}
+			else
+			{
+				console.log(request.status);
+				postResponseDisplay("<p>Something went wrong with an upload. Sorry.</p>");
+				return responseObject["t"];
+			}
+		};
+		
+		return request.send(data);
+	}
+	
+	getHashes = function(hash, elementNum)
+	{
+		if (files[elementNum].constructor === Array)
+		{
+			var part = files[elementNum].length;
+			
+			
+			for (var i = 0; i < files[elementNum].length; i++)
+			{
+				if (files[elementNum][i].length !== 46)
+				{
+					if (hash.toString().length === 46)
+					{
+						files[elementNum][i] = hash;
+						part = i + 1;
+					}
+					else
+					{
+						part = i;
+					}
+					
+					break;
+				}
+			}
+			
+			
+			var jsonObject = {};
+			
+			if (part >= files[elementNum].length)
+			{
+				//compile all parts into a JSON object and save at root
+				jsonObject["content"] = files[elementNum];
+				jsonObject["type"] = "ipfschan.file.header";
+				if (firstFileRun)
+				{
+					jsonObject["title"] = escapeHTML(fileElement[elementNum - 1].name);
+				}
+				
+				files[elementNum] = JSON.stringify(jsonObject);
+				
+				return subcol();
+			}
+			else
+			{
+				//compile part JSON and submit to postEncryptAndSend
+				jsonObject["content"] = files[elementNum][part];
+				jsonObject["type"] = "ipfschan.file.part";
+				return postEncryptAndSend(JSON.stringify(jsonObject), getHashes, elementNum);
+			}
+		}
+		else
+		{
+			if (hash.toString().length !== 46)
+			{
+				//submit the whole part
+				if (elementNum === 0)
+				{
+					postResponseDisplay("<p>Final post text upload beginning</p>");
+					return postEncryptAndSend(files[elementNum], function(h){return h;});
+				}
+				else
+				{
+					console.log ("WARNING: entered into code block not intended to be run");
+					console.log ("This sequence intended to post file headers, which is not currently implemented");
+					
+					var jsonObject = {};
+					
+					jsonObject["content"] = files[elementNum];
+					jsonObject["type"] = "ipfschan.compressed";
+					
+					return postEncryptAndSend(JSON.stringify(jsonObject), getHashes, elementNum);
+				}
+			}
+			else
+			{
+				console.log ("WARNING: entered into code block not intended to be run");
+				console.log ("This sequence intended to receive hashes of file headers and place them in the files array");
+				
+				//replace files[elementNum] with the hash
+				files[elementNum] = hash;
+				
+				return subcol();
+			}
+		}
+	}
+	
+	getFiles = function()
+	{
+		var newFile;
+		
+		
+		// " - 1" is because post text should already be in position 0
+		if (newFile = fileElement[files.length - 1])
+		{
+			var reader = new FileReader();
+			
+			reader.onload = function(e) {
+				var currentFile;
+				
+				currentFile = e.target.result;
+				
+				files[files.length] = currentFile;
+				
+				return getFiles();
+			};
+			
+			// Read in the image file as a data URI
+			return reader.readAsDataURL(newFile);
+		}
+		else
+		{
+			for (i = 1; i < files.length; i++)
+			{
+				files[i] = partition(files[i]);
+			}
+			
+			return subcol();
+		}
+	}
+	
+	
+	
+	var header = "";
+	var footer = "";
+	
+	
+	//TODO: bitcoin address signing
+	//TODO: private messages (using diffie-hellman?)
+	var finalPostText = "";
+	finalPostText = header + content + footer;
+	
+	
+	files[0] = finalPostText;
+	
+	
+	
+	
+	return getFiles();
+}
+
+//adds button watcher
+function setupButton()
+{
+	var button = document.getElementById("submit");
+	
+	button.onclick = postButtonListener;
+}
+
+function setup(firstRun)
+{
+	if (firstRun === undefined)
+	{
+		firstRun = false;
+	}
+	
+	if (firstRun)
+	{
+		setupButton();
+	}
+}
+
+function main()
+{
+	currentSite = getProtocolAndDomain();
+	
+	//add fragment to postList
+	var currentFragment = location.hash.replace(/#(.*)/, "$1");
+	
+	if (currentFragment.length === 46)
+	{
+		postList[postList.length] = currentFragment;
+		postList = postList.filter(function(element, position, array) {
+			return array.indexOf(element) === position;
+		});
+		loadNext(true);
+	}
+	
+	setup(true);
+	loadSite(getProtocolAndDomain());
+}
+
+
+
+main();
+</script>
+	</body>
+</html>

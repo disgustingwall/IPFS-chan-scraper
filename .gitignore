@@ -1,0 +1,4 @@
+#ignore "untracked" folder
+/untracked/
+# ignore node downloads
+/node_modules/
