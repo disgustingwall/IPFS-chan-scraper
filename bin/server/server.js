@@ -630,7 +630,7 @@ function main()
 	ipfs = ipfsAPI(cfgObject["ipfsAPI"]["domain"], cfgObject["ipfsAPI"]["port"], cfgObject["ipfsAPI"]["options"]);
 	
 	
-	publishMailboxPull(function(h){return console.log(h)});
+	publishMailboxPull();
 	
 	
 	//add at least one post (only the empty hash) so that /newest always has content
