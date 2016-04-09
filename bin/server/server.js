@@ -840,15 +840,57 @@ function main()
 	});
 	
 	app.get(/.*/, function(req, res) {
+		var HTMLrequest = req;
+		var HTMLresponse = res;
+		
 		//TODO: add index.html to ipfs and redirect client to that object
-		res.writeHead(302, {
-			'Location': 'http://' + req.get('host') + '/ipfs/QmVADhzxKusgYiDh3W2DEzbdzVsoRwKFma2oQs1NUhVbTo'
-			//add other headers here...
+		fs.readFile("__dirname/../client/index.html", function (err, data) {
+			if (err)
+			{
+				console.log("Error reading index.html");
+				
+				HTMLresponse.writeHead(302, {
+					'Location': 'http://' + req.get('host') + '/upload.html'
+					//add other headers here...
+				});
+				
+				//TODO: just write something so that onion.city works
+				//TODO: does the empty string count?
+				HTMLresponse.end("");
+				
+				return console.log(err);
+			}
+			
+			ipfs.add(new Buffer(data.toString()), function(err, res) {
+				if(err || !res)
+				{
+					HTMLresponse.writeHead(302, {
+						'Location': 'http://' + req.get('host') + '/upload.html'
+						//add other headers here...
+					});
+					
+					//TODO: just write something so that onion.city works
+					//TODO: does the empty string count?
+					HTMLresponse.end("");
+					
+					return console.error(err);
+				}
+				
+				var IPFSResponse = res;
+				
+				
+				return IPFSResponse.forEach(function(element, elementNumber) {
+					HTMLresponse.writeHead(302, {
+						'Location': 'http://' + req.get('host') + '/' + element.Hash.toString();
+						//add other headers here...
+					});
+					
+					//TODO: just write something so that onion.city works
+					//TODO: does the empty string count?
+					return HTMLresponse.end("");
+				});
+			});
 		});
-		
-		//TODO: just write something so that onion.city works
-		
-		res.end();
 	});
 	
 	app.get(/boop/, function(request, response) {
