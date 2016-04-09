@@ -842,7 +842,7 @@ function main()
 	app.get(/.*/, function(req, res) {
 		//TODO: add index.html to ipfs and redirect client to that object
 		res.writeHead(302, {
-			'Location': 'http://' + req.get('host') + '/ipfs/QmYCqWnadEm74NAMYDzAmXxiLh3NAiWf6cW9mfXmi9X8X2'
+			'Location': 'http://' + req.get('host') + '/ipfs/QmVADhzxKusgYiDh3W2DEzbdzVsoRwKFma2oQs1NUhVbTo'
 			//add other headers here...
 		});
 		
