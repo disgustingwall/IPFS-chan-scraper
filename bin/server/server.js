@@ -756,7 +756,7 @@ function main()
 	
 	app.get('/upload.html', function(req, res) {
 		//TODO: add upload.html to IPFS occasionally and store hash to redirect to
-		res.sendFile(__dirname + "/upload.html");
+		res.sendFile('upload.html', { root: __dirname + "/../client/"});
 	});
 	
 	app.get(/upload/, function(req, res) {
@@ -844,7 +844,7 @@ function main()
 		var HTMLresponse = res;
 		
 		//TODO: add index.html to ipfs and redirect client to that object
-		fs.readFile("__dirname/../client/index.html", function (err, data) {
+		fs.readFile(__dirname + "/../client/index.html", function (err, data) {
 			if (err)
 			{
 				console.log("Error reading index.html");
@@ -864,6 +864,8 @@ function main()
 			ipfs.add(new Buffer(data.toString()), function(err, res) {
 				if(err || !res)
 				{
+					console.log("error adding index.html to IPFS");
+					
 					HTMLresponse.writeHead(302, {
 						'Location': 'http://' + req.get('host') + '/upload.html'
 						//add other headers here...
@@ -880,8 +882,10 @@ function main()
 				
 				
 				return IPFSResponse.forEach(function(element, elementNumber) {
+					console.log("redirecting index to " + "/ipfs/" + element.Hash.toString());
+					
 					HTMLresponse.writeHead(302, {
-						'Location': 'http://' + req.get('host') + '/' + element.Hash.toString()
+						'Location': 'http://' + req.get('host') + '/ipfs/' + element.Hash.toString()
 						//add other headers here...
 					});
 					
