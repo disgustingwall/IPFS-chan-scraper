@@ -833,12 +833,6 @@ function main()
 		}
 	});
 	
-	app.get(/player/, function(req, res) {
-		//TODO: redirect to IPFS hash
-		//TODO: re-add player.html occasionally and store hash to redirect to
-		res.sendFile(__dirname + "/player.html");
-	});
-	
 	app.get(/.*/, function(req, res) {
 		var HTMLrequest = req;
 		var HTMLresponse = res;
