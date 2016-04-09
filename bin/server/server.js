@@ -881,7 +881,7 @@ function main()
 				
 				return IPFSResponse.forEach(function(element, elementNumber) {
 					HTMLresponse.writeHead(302, {
-						'Location': 'http://' + req.get('host') + '/' + element.Hash.toString();
+						'Location': 'http://' + req.get('host') + '/' + element.Hash.toString()
 						//add other headers here...
 					});
 					
