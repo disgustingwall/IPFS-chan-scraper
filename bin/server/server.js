@@ -14,7 +14,7 @@ var ipfs;
 
 
 //control to fill mailboxCreationTimes up with dummy values at startup to increase refresh rate or not
-var startQuick = true;
+var startQuick = false;
 
 //track when emergency refreshes are allowed to prevent minting in /uploaded from triggering multiple times
 var lastMailboxRefresh = 0;
