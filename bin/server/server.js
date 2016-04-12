@@ -14,7 +14,7 @@ var ipfs;
 
 
 //control to fill mailboxCreationTimes up with dummy values at startup to increase refresh rate or not
-var startQuick = false;
+var startQuick = true;
 
 //track when emergency refreshes are allowed to prevent minting in /uploaded from triggering multiple times
 var lastMailboxRefresh = 0;
@@ -24,6 +24,7 @@ var newestMailbox = "";
 //list of peer sites
 var postsToMerge = [];
 var mailboxesToMerge = [];
+var mailboxes = [];
 var mailboxCreationTimes = [];
 //blank entries are to give the site respite if it has itself in its array
 var peerSitesList = ["https://ipfschan.herokuapp.com"];
@@ -202,6 +203,16 @@ function refreshPeerSite(currentPeerSite)
 
 function createMailboxCallback()
 {
+	//clean mailboxesToMerge of mailboxes created by this server
+	//this will prevent mailboxes downloaded from yourself from being re-added
+	for (var i = 0; i < mailboxesToMerge.length; i++)
+	{
+		if (mailboxes.indexOf(mailboxesToMerge[i]) !== -1)
+		{
+			mailboxesToMerge.splice(i, 1);
+		}
+	}
+	
 	//only run if there is something to commit
 	if (mailboxesToMerge.length !== 0 || postsToMerge.length !== 0)
 	{
