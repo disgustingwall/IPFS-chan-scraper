@@ -25,6 +25,7 @@ var newestMailbox = "";
 var postsToMerge = [];
 var mailboxesToMerge = [];
 var mailboxes = [];
+var foreignMailboxes = [];
 var mailboxCreationTimes = [];
 //blank entries are to give the site respite if it has itself in its array
 var peerSitesList = ["https://ipfschan.herokuapp.com"];
@@ -113,13 +114,16 @@ function refreshMailboxResponse (response)
 	response.on('end', function () {
 		console.log("string received from foreign host: " + str);
 		
-		//TODO: only process if foreignNewest is actually new (foreign site is active)
-		
 		//if foreignNewest is really an IPFS hash
 		//TODO: better checking
 		if (str.length === 46)
 		{
-			mailboxesToMerge[mailboxesToMerge.length] = str;
+			//only process if foreign newest is actually new (foreign site is active)
+			if (foreignMailboxes.indexOf(str) === -1)
+			{
+				foreignMailboxes.push(str);
+				mailboxesToMerge.push(str);
+			}
 		}
 		else
 		{
@@ -229,7 +233,7 @@ function createMailboxCallback()
 			
 			if (oldMailbox)
 			{
-				newMailboxJSON["o"][newMailboxJSON["o"].length] = oldMailbox;
+				newMailboxJSON["o"].push(oldMailbox);
 			}
 			
 			//remove duplicates
@@ -299,7 +303,7 @@ function createMailboxCallback()
 					
 					var currentTime = Date.now();
 					
-					mailboxCreationTimes[mailboxCreationTimes.length] = currentTime;
+					mailboxCreationTimes.push(currentTime);
 				});
 			});
 		}
@@ -387,7 +391,7 @@ function maybeAddAsNewest (data)
 		}
 		else
 		{
-			mailboxesToMerge[mailboxesToMerge.length] = data.toString();
+			mailboxesToMerge.push(data.toString());
 		}
 	}
 	
@@ -401,7 +405,7 @@ function addToPeerSites(newArr)
 	
 	for(var i = 0; i < newArr.length; i++)
 	{
-		tempArr[tempArr.length] = newArr[i];
+		tempArr.push(newArr[i]);
 	}
 	
 	//remove duplicates
@@ -567,7 +571,7 @@ function main()
 	{
 		for (var i = 0; i < 60; i++)
 		{
-			mailboxCreationTimes[mailboxCreationTimes.length] = currentTime + i * 60 * 1000;
+			mailboxCreationTimes.push(currentTime + i * 60 * 1000);
 		}
 	}
 	
@@ -647,7 +651,7 @@ function main()
 	
 	
 	//add at least one post (only the empty hash) so that /newest always has content
-	postsToMerge[postsToMerge.length] = "QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH";
+	postsToMerge.push("QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH");
 	
 	if (lastMailboxRefresh < Date.now())
 	{
@@ -717,7 +721,7 @@ function main()
 					siteNormalized = "http://" + siteNormalized;
 				}
 				
-				peerSitesList[peerSitesList.length] = siteNormalized;
+				peerSitesList.push(siteNormalized);
 			});
 			
 			//remove duplicates
@@ -748,7 +752,7 @@ function main()
 			
 			
 			textResponse.forEach(function(text, textNumber) {
-				postsToMerge[postsToMerge.length] = text["Hash"];
+				postsToMerge.push(text["Hash"]);
 				responseObject["t"] = text["Hash"];
 			});
 			
@@ -850,7 +854,7 @@ function main()
 		var HTMLrequest = req;
 		var HTMLresponse = res;
 		
-		//TODO: add index.html to ipfs and redirect client to that object
+		//add index.html to ipfs and redirect client to that object
 		fs.readFile(__dirname + "/../client/index.html", function (err, data) {
 			if (err)
 			{

@@ -529,11 +529,11 @@ function renderPost(responseText, extra)
 			postReferenceHashes = [];
 			
 			postReferencesMatches.forEach(function(element, index) {
-				postReferenceHashes[postReferenceHashes.length] = element.replace(/(&gt;&gt;(\w{46}))/g, "$2");
+				postReferenceHashes.push(element.replace(/(&gt;&gt;(\w{46}))/g, "$2"));
 			});
 			
 			postReferenceHashes.forEach(function(element, index) {
-				postList[postList.length] = element;
+				postList.push(element);
 				postList = postList.filter(function(element, position, array) {
 					return array.indexOf(element) === position;
 				});
@@ -640,7 +640,7 @@ function renderMailbox(responseText, parameterObject, continueUntilPost, continu
 	{
 		for(var i = 0; i < responseObject["o"].length; i++)
 		{
-			mailboxes[mailboxes.length] = responseObject["o"][i];
+			mailboxes.push(responseObject["o"][i]);
 		}
 	}
 	
@@ -648,7 +648,7 @@ function renderMailbox(responseText, parameterObject, continueUntilPost, continu
 	{
 		for(var i = 0; i < responseObject["n"].length; i++)
 		{
-			postList[postList.length] = responseObject["n"][i];
+			postList.push(responseObject["n"][i]);
 			postList = postList.filter(function(element, position, array) {
 				return array.indexOf(element) === position;
 			});
@@ -922,12 +922,12 @@ function postButtonListener(ev)
 		//while final file size is above 262 KB
 		while(theFile.toString().length > cutOff)
 		{
-			fileParts[fileParts.length] = theFile.substr(0, cutOff);
+			fileParts.push(theFile.substr(0, cutOff));
 			theFile = theFile.substr(cutOff);
 		}
 		
 		//add final part
-		fileParts[fileParts.length] = theFile;
+		fileParts.push(theFile);
 		
 		return fileParts;
 	}
@@ -1136,7 +1136,7 @@ function postButtonListener(ev)
 				
 				currentFile = e.target.result;
 				
-				files[files.length] = currentFile;
+				files.push(currentFile);
 				
 				return getFiles();
 			};
@@ -1205,7 +1205,7 @@ function main()
 	
 	if (currentFragment.length === 46)
 	{
-		postList[postList.length] = currentFragment;
+		postList.push(currentFragment);
 		postList = postList.filter(function(element, position, array) {
 			return array.indexOf(element) === position;
 		});
