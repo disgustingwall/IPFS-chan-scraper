@@ -282,6 +282,8 @@ function createMailboxCallback()
 					//store new mailbox hash in core directory
 					newestMailbox = element.Hash.toString();
 					
+					mailboxes.push(newestMailbox);
+					
 					//push to IPFS node
 					publishMailboxPush();
 					
