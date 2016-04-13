@@ -290,6 +290,8 @@ function renderFileCallback(responseText, extra)
 		var fileContent = "";
 		var displayContent = ""
 		
+		var filename = extra["replaceID"].replace(/(.*)-........../, "$1");
+		
 		//build fileContent from the various hashes
 		for(var i = 0; i < extra["postJSON"]["files"][extra["fileIndex"]]["content"].length; i++)
 		{
@@ -312,7 +314,7 @@ function renderFileCallback(responseText, extra)
 		
 		if (fileMatches[1] === "data:" && (fileMatches[4] === "video" || fileMatches[4] === "image" || fileMatches[4] === "audio"))
 		{
-			displayContent = "<p>File: " + extra["replaceID"] + " (" + fileMatches[3] + ")</p>";
+			displayContent = "<p>File: " + filename + " (" + fileMatches[3] + ")</p>";
 			
 			//video embed
 			if (fileMatches[4] === "video")
@@ -324,7 +326,7 @@ function renderFileCallback(responseText, extra)
 			if (fileMatches[4] === "image")
 			{
 				//TODO: use title as alt?
-				displayContent += "<img src='" + fileContent + "' style='max-width:90%;' alt='" + fileMatches[3] + "' />";
+				displayContent += "<img src='" + fileContent + "' style='max-width:90%;' alt='" + filename + "' />";
 			}
 			else
 			//audio embed
