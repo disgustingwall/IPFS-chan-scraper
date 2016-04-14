@@ -772,7 +772,7 @@ function queueNewMailbox()
 	//add newest to front
 	globalMailboxes.unshift(newestMailbox);
 	
-	setTimeout(refreshNewestMailbox, parameterObject["delay"], {"delay": Math.ceil(parameterObject["delay"] * 2 + Math.ceil(Math.random()*10))});
+	setTimeout(refreshNewestMailbox, parameterObject["delay"], {"delay": Math.ceil(parameterObject["delay"] * 2 + Math.random()*10)});
 	
 	showLoadNextButton();
 	document.getElementById("loadNextSpan").style["border-style"] = "solid";
