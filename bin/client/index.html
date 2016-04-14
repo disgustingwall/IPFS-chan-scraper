@@ -1203,7 +1203,7 @@ function main()
 {
 	currentSite = getProtocolAndDomain();
 	
-	//add fragment to postList
+	//add fragment to postList and mailbox list
 	var currentFragment = location.hash.replace(/#(.*)/, "$1");
 	
 	if (currentFragment.length === 46)
@@ -1212,6 +1212,7 @@ function main()
 		postList = postList.filter(function(element, position, array) {
 			return array.indexOf(element) === position;
 		});
+		globalMailboxes.unshift(currentFragment);
 		loadNext(true);
 	}
 	
