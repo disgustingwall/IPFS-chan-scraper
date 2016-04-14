@@ -480,16 +480,19 @@ function decryptToChannel(message)
 	var channel = document.getElementById("channel").value;
 	var channelPassword = document.getElementById("channelPassword").value;
 	
+	var returnValue = "";
+	
 	try
 	{
-		return CryptoJS.AES.decrypt(message, channelPassword.toString() + channel.toString()).toString(CryptoJS.enc.Utf8);
+		returnValue = CryptoJS.AES.decrypt(message, channelPassword.toString() + channel.toString());
+		returnValue = returnValue.toString(CryptoJS.enc.Utf8);
 	}
 	catch (e)
 	{
 		console.log(e);
 	}
 	
-	return "";
+	return returnValue;
 }
 
 function renderPost(responseText, extra)
@@ -605,20 +608,25 @@ function renderPosts(start, end)
 	
 	for(var i = start; i < end; i++)
 	{
-		webRequest(getProtocolAndDomain() + "/ipfs/" + postList[i], renderPost, {"index":i})
+		webRequest(getProtocolAndDomain() + "/ipfs/" + postList[i], renderPost, {"index":i});
 	}
 	
 	lastLoadedPost = end;
+	
+	return 0;
 }
 
-function renderMailbox(responseText, parameterObject, continueUntilPost, continueForever)
+function renderMailbox(responseText, parameterObject)
 {
-	if (continueUntilPost === undefined)
+	var continueUntilPost = parameterObject["continueUntilPost"];
+	var continueForever = parameterObject["continueForever"];
+	
+	if (continueUntilPost !== true)
 	{
 		continueUntilPost = false;
 	}
 	
-	if (continueForever === undefined)
+	if (continueForever !== true)
 	{
 		continueForever = false;
 	}
@@ -628,16 +636,6 @@ function renderMailbox(responseText, parameterObject, continueUntilPost, continu
 	var responseObject = JSON.parse(responseText);
 	var mailboxes = parameterObject["mailboxes"];
 	
-	
-	if (parameterObject["continueUntilPost"] !== undefined)
-	{
-		continueUntilPost = parameterObject["continueUntilPost"];
-	}
-	
-	if (parameterObject["continueForever"] !== undefined)
-	{
-		continueForever = parameterObject["continueForever"];
-	}
 	
 	if (responseObject.hasOwnProperty("o"))
 	{
@@ -686,18 +684,22 @@ function renderMailbox(responseText, parameterObject, continueUntilPost, continu
 	if (postList.length <= originalPostListLength || continueUntilPost || continueForever)
 	{
 		//load next mailbox
-		loadNext(continueUntilPost, continueForever);
+		return loadNext(continueUntilPost, continueForever);
+	}
+	else
+	{
+		return 0;
 	}
 }
 
 function getMailbox(mailboxes, continueUntilPost, continueForever)
 {
-	if (continueUntilPost === undefined)
+	if (continueUntilPost !== true)
 	{
 		continueUntilPost = false;
 	}
 	
-	if (continueForever === undefined)
+	if (continueForever !== true)
 	{
 		continueForever = false;
 	}
@@ -711,22 +713,22 @@ function getMailbox(mailboxes, continueUntilPost, continueForever)
 	parameterObject["continueUntilPost"] = continueUntilPost;
 	parameterObject["continueForever"] = continueForever;
 	
-	webRequest(getProtocolAndDomain() + "/ipfs/" + newMailbox, renderMailbox, parameterObject);
+	return webRequest(getProtocolAndDomain() + "/ipfs/" + newMailbox, renderMailbox, parameterObject);
 }
 
 function loadNext(continueUntilPost, continueForever, loadAll)
 {
-	if (continueUntilPost === undefined)
+	if (continueUntilPost !== true)
 	{
 		continueUntilPost = false;
 	}
 	
-	if (continueForever === undefined)
+	if (continueForever !== true)
 	{
 		continueForever = false;
 	}
 	
-	if (loadAll === undefined)
+	if (loadAll !== true)
 	{
 		loadAll = false;
 	}
@@ -749,18 +751,18 @@ function loadNext(continueUntilPost, continueForever, loadAll)
 		}
 		//otherwise, end will remain undefined and renderPosts will reassign it to the length of the entire list
 		
-		renderPosts(lastLoadedPost, end);
+		return renderPosts(lastLoadedPost, end);
 	}
 	//only load mailboxes if there are no new posts left
 	else
 	if (globalMailboxes.length > 0)
 	{
-		getMailbox(globalMailboxes, continueUntilPost);
+		return getMailbox(globalMailboxes, continueUntilPost);
 	}
 	//if there's nothing to load, hide the button
 	else
 	{
-		hideLoadNextButton();
+		return hideLoadNextButton();
 	}
 }
 
