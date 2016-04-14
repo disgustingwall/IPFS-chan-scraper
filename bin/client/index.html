@@ -34,6 +34,7 @@ video, img, audio
 		<div id="content" style="margin:8;">
 			<div id="welcome"><p>Welcome to IPFSchan. For instructions and information, go to <a href="#instructions">the bottom of this page</a></p></div>
 			<br />
+			<div id="currentMailboxHolder"></div>
 			<div id="postForm">
 				<p>
 					<span style="display:flex;">Files: </span>
@@ -768,6 +769,7 @@ function loadNext(continueUntilPost, continueForever, loadAll)
 
 function queueNewMailbox()
 {
+	document.getElementById("currentMailboxHolder").innerHTML = "<a href='#" + newestMailbox + "'>" + newestMailbox + "</a>";
 	var parameterObject = {};
 	parameterObject["delay"] = 5 * 1000;
 	
@@ -843,11 +845,11 @@ function getNewestMailbox(responseText, parameterObject)
 		//if we're here, it means we're done loading sites
 		foundSite = true;
 		storeNewestMailbox(responseText, parameterObject);
-		getMailbox([responseText]);
+		return getMailbox([responseText]);
 	}
 	else
 	{
-		loadNextServer(parameterObject);
+		return loadNextServer(parameterObject);
 	}
 }
 
