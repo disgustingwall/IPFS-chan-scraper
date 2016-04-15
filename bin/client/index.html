@@ -27,6 +27,9 @@
 video, img, audio
 {
 	padding: 10px;
+	max-width: 90%;
+	min-width: 230px;
+	max-height: fill-available;
 }
 </style>
 	</head>
@@ -324,14 +327,14 @@ function renderFileCallback(responseText, extra)
 			//video embed
 			if (fileMatches[4] === "video")
 			{
-				displayContent += '<video controls style="max-width:90%; min-width: 230px;"><source src="' + fileContent + '" type="' + fileMatches[3] + '"></video>';
+				displayContent += '<video controls><source src="' + fileContent + '" type="' + fileMatches[3] + '"></video>';
 			}
 			else
 			//image embed
 			if (fileMatches[4] === "image")
 			{
 				//TODO: use title as alt?
-				displayContent += "<img src='" + fileContent + "' style='max-width:90%;' alt='" + filename + "' />";
+				displayContent += "<img src='" + fileContent + "' alt='" + filename + "' />";
 			}
 			else
 			//audio embed
