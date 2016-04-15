@@ -1226,6 +1226,8 @@ function main()
 			return array.indexOf(element) === position;
 		});
 		globalMailboxes.unshift(currentFragment);
+		//ensure load next button is available
+		showLoadNextButton()
 	}
 	
 	setup(true);
