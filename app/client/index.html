@@ -776,7 +776,7 @@ function loadNext(continueUntilPost, continueForever, loadAll)
 
 function queueNewMailbox()
 {
-	//TODO: change fragment automatically if it isn't 46 characters long or it's set to the current mailbox?
+	//TODO: change fragment automatically if it isn't 46 characters long or it's set to the current mailbox or is blank?
 	document.getElementById("currentMailboxHolder").innerHTML = "<a href='#" + newestMailbox + "'>" + newestMailbox + "</a>";
 
 	var parameterObject = {};
