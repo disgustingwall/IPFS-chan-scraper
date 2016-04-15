@@ -514,6 +514,7 @@ function renderPost(responseText, extra)
 	}
 	catch (e)
 	{
+		//TODO: render unencrypted files/folders posted through ipfs add?
 		return loadNext(true);
 	}
 	
