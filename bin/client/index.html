@@ -772,18 +772,17 @@ function loadNext(continueUntilPost, continueForever, loadAll)
 
 function queueNewMailbox()
 {
+	//TODO: change fragment automatically if it isn't 46 characters long or it's set to the current mailbox?
 	document.getElementById("currentMailboxHolder").innerHTML = "<a href='#" + newestMailbox + "'>" + newestMailbox + "</a>";
-	
-	//TODO: change fragment automatically if it isn't 46 characters long?
-	
+
 	var parameterObject = {};
 	parameterObject["delay"] = 5 * 1000;
-	
+
 	//add newest to front
 	globalMailboxes.unshift(newestMailbox);
-	
+
 	setTimeout(refreshNewestMailbox, parameterObject["delay"], {"delay": Math.ceil(parameterObject["delay"] * 2 + Math.random()*10)});
-	
+
 	showLoadNextButton();
 	document.getElementById("loadNextSpan").style["border-style"] = "solid";
 	document.getElementById("newPostAlertHolder").style.display = "";
@@ -796,15 +795,15 @@ function storeNewestMailbox(hash, parameterObject)
 	{
 		parameterObject = {};
 	}
-	
+
 	if (!parameterObject.hasOwnProperty("delay"))
 	{
 		parameterObject["delay"] = 5 * 1000;
 	}
-	
+
 	var oldMailbox = newestMailbox;
 	newestMailbox = hash;
-	
+
 	if (newestMailbox != oldMailbox)
 	{
 		if (document.getElementById("autoLoadPosts").checked)
@@ -828,7 +827,7 @@ function storeNewestMailbox(hash, parameterObject)
 function refreshNewestMailbox(parameterObject)
 {
 	var siteToLoadFrom = currentSite;
-	
+
 	if (!foundSite || siteToLoadFrom === undefined || siteToLoadFrom === "")
 	{
 		siteToLoadFrom = getProtocolAndDomain();
