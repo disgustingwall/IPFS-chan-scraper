@@ -34,7 +34,10 @@ video, img, audio
 		<div id="content" style="margin:8;">
 			<div id="welcome"><p>Welcome to IPFSchan. For instructions and information, go to <a href="#instructions">the bottom of this page</a></p></div>
 			<br />
-			<div id="currentMailboxHolder"></div>
+			<div id="mailboxInfoHolder">
+				<p>When this page finds that a new block has been posted on a server, it will place the ID of that hash below as a link. Click it to store that ID in the URL so that you can automatically load it later. If you're running your own IPFS node, that means you can have access to posts even if the server goes down. </p>
+				<p><span id="currentMailboxHolder"></span></p>
+			</div>
 			<div id="postForm">
 				<p>
 					<span style="display:flex;">Files: </span>
@@ -770,6 +773,9 @@ function loadNext(continueUntilPost, continueForever, loadAll)
 function queueNewMailbox()
 {
 	document.getElementById("currentMailboxHolder").innerHTML = "<a href='#" + newestMailbox + "'>" + newestMailbox + "</a>";
+	
+	//TODO: change fragment automatically if it isn't 46 characters long?
+	
 	var parameterObject = {};
 	parameterObject["delay"] = 5 * 1000;
 	
