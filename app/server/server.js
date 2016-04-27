@@ -867,7 +867,7 @@ function main()
 				
 				//TODO: just write something so that onion.city works
 				//TODO: does the empty string count?
-				HTMLresponse.end("");
+				HTMLresponse.end("Sorry, but the index page cannot be found. Redirecting you to the generic upload page");
 				
 				return console.log(err);
 			}
@@ -884,7 +884,7 @@ function main()
 					
 					//TODO: just write something so that onion.city works
 					//TODO: does the empty string count?
-					HTMLresponse.end("");
+					HTMLresponse.end("Sorry, but something seems to be wrong with the index page or my IPFS connection. Redirecting you to the generic upload page");
 					
 					return console.error(err);
 				}

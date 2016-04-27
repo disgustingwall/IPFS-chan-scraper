@@ -333,8 +333,8 @@ function renderFileCallback(responseText, extra)
 			//image embed
 			if (fileMatches[4] === "image")
 			{
-				//TODO: use title as alt?
-				displayContent += "<img src='" + fileContent + "' alt='" + filename + "' />";
+				//use title as alt
+				displayContent += "<img src='" + fileContent + "' style='max-width:90%;' alt='" + fileMatches[3] + "' />";
 			}
 			else
 			//audio embed
