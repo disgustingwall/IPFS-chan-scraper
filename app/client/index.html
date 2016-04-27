@@ -1004,6 +1004,7 @@ function postButtonListener(ev)
 		
 		if (files[0].toString().length > cutOff)
 		{
+			postResponseDisplay("Your post is too long; Compressing");
 			firstFileRun = false;
 			files[1] = files[0];
 			files[0] = "compressed post";
