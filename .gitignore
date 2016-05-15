@@ -2,3 +2,5 @@
 /untracked/
 # ignore node downloads
 /node_modules/
+#ignore npm errors
+npm-debug.log

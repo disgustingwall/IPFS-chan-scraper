@@ -794,6 +794,9 @@ function main()
 			}
 		}
 		
+		//add at least one post (only the empty hash) so that /newest always has content
+		postsToMerge.push("QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH");
+		
 		response.end(newestMailbox.toString());
 	});
 	
@@ -923,6 +926,9 @@ function main()
 							
 							return console.error(err);
 						}
+						
+						//add at least one post (only the empty hash) so that /newest always has content
+						postsToMerge.push("QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH");
 						
 						var IPFSResponse = res;
 						
