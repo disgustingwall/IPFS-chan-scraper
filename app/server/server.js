@@ -151,7 +151,7 @@ function refreshMailbox(site)
 	{
 		if (siteMatches[3] === "https://" || siteMatches[8] === "443")
 		{
-			console.log("using https");
+			//console.log("using https");
 			protocol = https;
 		}
 	}
