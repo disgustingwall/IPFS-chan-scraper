@@ -854,11 +854,11 @@ function main()
 		var HTMLrequest = req;
 		var HTMLresponse = res;
 		
-		//add index.html to ipfs and redirect client to that object
-		fs.readFile(__dirname + "/../client/index.html", function (err, data) {
+		//TODO: add aes.js to ipfs
+		fs.readFile(__dirname + "/../client/aes.js", function (err, data) {
 			if (err)
 			{
-				console.log("Error reading index.html");
+				console.log("Error reading aes.js");
 				
 				HTMLresponse.writeHead(302, {
 					'Location': 'http://' + req.get('host') + '/upload.html'
@@ -867,7 +867,7 @@ function main()
 				
 				//TODO: just write something so that onion.city works
 				//TODO: does the empty string count?
-				HTMLresponse.end("Sorry, but the index page cannot be found. Redirecting you to the generic upload page");
+				HTMLresponse.end("Sorry, but the aes.js library cannot be found. Redirecting you to the generic upload page");
 				
 				return console.log(err);
 			}
@@ -875,7 +875,7 @@ function main()
 			ipfs.add(new Buffer(data.toString()), function(err, res) {
 				if(err || !res)
 				{
-					console.log("error adding index.html to IPFS");
+					console.log("error adding aes.js to IPFS");
 					
 					HTMLresponse.writeHead(302, {
 						'Location': 'http://' + req.get('host') + '/upload.html'
@@ -884,25 +884,62 @@ function main()
 					
 					//TODO: just write something so that onion.city works
 					//TODO: does the empty string count?
-					HTMLresponse.end("Sorry, but something seems to be wrong with the index page or my IPFS connection. Redirecting you to the generic upload page");
+					HTMLresponse.end("Sorry, but something seems to be wrong with the aes javascript file or my IPFS connection. Redirecting you to the generic upload page");
 					
 					return console.error(err);
 				}
 				
-				var IPFSResponse = res;
-				
-				
-				return IPFSResponse.forEach(function(element, elementNumber) {
-					console.log("redirecting index to " + "/ipfs/" + element.Hash.toString());
+				//add index.html to ipfs and redirect client to that object
+				fs.readFile(__dirname + "/../client/index.html", function (err, data) {
+					if (err)
+					{
+						console.log("Error reading index.html");
+						
+						HTMLresponse.writeHead(302, {
+							'Location': 'http://' + req.get('host') + '/upload.html'
+							//add other headers here...
+						});
+						
+						//TODO: just write something so that onion.city works
+						//TODO: does the empty string count?
+						HTMLresponse.end("Sorry, but the index page cannot be found. Redirecting you to the generic upload page");
+						
+						return console.log(err);
+					}
 					
-					HTMLresponse.writeHead(302, {
-						'Location': 'http://' + req.get('host') + '/ipfs/' + element.Hash.toString()
-						//add other headers here...
+					ipfs.add(new Buffer(data.toString()), function(err, res) {
+						if(err || !res)
+						{
+							console.log("error adding index.html to IPFS");
+							
+							HTMLresponse.writeHead(302, {
+								'Location': 'http://' + req.get('host') + '/upload.html'
+								//add other headers here...
+							});
+							
+							//TODO: just write something so that onion.city works
+							//TODO: does the empty string count?
+							HTMLresponse.end("Sorry, but something seems to be wrong with the index page or my IPFS connection. Redirecting you to the generic upload page");
+							
+							return console.error(err);
+						}
+						
+						var IPFSResponse = res;
+						
+						
+						return IPFSResponse.forEach(function(element, elementNumber) {
+							console.log("redirecting index to " + "/ipfs/" + element.Hash.toString());
+							
+							HTMLresponse.writeHead(302, {
+								'Location': 'http://' + req.get('host') + '/ipfs/' + element.Hash.toString()
+								//add other headers here...
+							});
+							
+							//TODO: just write something so that onion.city works
+							//TODO: does the empty string count?
+							return HTMLresponse.end("");
+						});
 					});
-					
-					//TODO: just write something so that onion.city works
-					//TODO: does the empty string count?
-					return HTMLresponse.end("");
 				});
 			});
 		});
