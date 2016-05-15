@@ -15,6 +15,11 @@ var ipfs;
 
 //control to fill mailboxCreationTimes up with dummy values at startup to increase refresh rate or not
 var startQuick = true;
+//control what the minimum and maximum block creation time is, in miliseconds
+var minimumBlockTime = 10 * 1000; //ten seconds
+var maximumBlockTime = 60 * 60 * 1000; //one hour
+//set target for number of blocks per hour
+var targetBlocksPerHour = 6;
 
 //track when emergency refreshes are allowed to prevent minting in /uploaded from triggering multiple times
 var lastMailboxRefresh = 0;
@@ -92,13 +97,19 @@ function writeIfNotExist(file, content, callback, callbackParmeterObject)
 
 function cleanMailboxCreationTimes(callback)
 {
+	if (!callback)
+	{
+		callback = function(){return true;};
+	}
+	
 	var currentTime = Date.now();
+	//remove all dates older than one hour
 	while(mailboxCreationTimes[0] < currentTime - (60 * 60 * 1000))
 	{
 		mailboxCreationTimes.splice(0, 1);
 	}
 	
-	callback();
+	return callback();
 }
 
 function refreshMailboxResponse (response)
@@ -198,10 +209,10 @@ function refreshPeerSite(currentPeerSite)
 			refreshMailbox(peerSitesList[currentPeerSite]);
 		}
 		
-		//devided by 2 to be twice as fast
-		var delay = Math.floor(((60 * (5 / (mailboxCreationTimes.length + 1))) / 10) + 1) * 10 * 1000 / 2;
+		//delay devided by 2 to be twice as fast
+		var delay = Math.ceil((Math.min(maximumBlockTime, Math.ceil(((60 * 60 * 1000 / targetBlocksPerHour) - minimumBlockTime) * ((mailboxCreationTimes.length) / targetBlocksPerHour) + minimumBlockTime)) + 1) / 2);
 		
-		setTimeout(refreshPeerSite, delay, currentPeerSite + 1);
+		return setTimeout(refreshPeerSite, delay, currentPeerSite + 1);
 	});
 }
 
@@ -313,16 +324,19 @@ function createMailboxCallback()
 function createMailbox()
 {
 	//clean mailboxCreationTimes
-	cleanMailboxCreationTimes(function(){
+	return cleanMailboxCreationTimes(function(){
 		createMailboxCallback();
 		
-		//create new mailbox faster if there are many messages, slower if there are few
-		//aiming at 1 every minute, looking over 60 minutes
-		//(one minute in miliseconds * (60 / (number of mailboxes in the last hour + 60))) + 10 seconds
-		var delay = Math.floor(((60 * (5 / (mailboxCreationTimes.length + 1))) / 10) + 1) * 10 * 1000;
+		//create new mailbox slower if there are many blocks recently, faster if there are few
+		//all in milliseconds, the average block time minus the minimum, times the target number of blocks devided by the actual number of blocks, plus the minimum block time, plus one
+		//average block time is calculated by taking one hour in miliseconds and deviding it by the target blocks per hour
+		//minimum time is subtracted from average time so that if the number of blocks is equal to the target, the final sum is equal to averageBlockTime
+		//mailboxCreationTimes.length / targetBlocksPerHour is equal to one if the target is met, approaches zero as the number of blocks dwindles, and approaches infinity as the number of blocks increase
+		//always add one at the very end to prevent a delay of zero
+		var delay = Math.min(maximumBlockTime, Math.ceil(((60 * 60 * 1000 / targetBlocksPerHour) - minimumBlockTime) * ((mailboxCreationTimes.length) / targetBlocksPerHour) + minimumBlockTime)) + 1;
 		
 		
-		setTimeout(createMailbox, delay);
+		return setTimeout(createMailbox, delay);
 	});
 }
 
