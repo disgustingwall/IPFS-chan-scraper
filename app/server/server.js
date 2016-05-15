@@ -583,7 +583,7 @@ function main()
 	//only if global variable is set
 	if (startQuick)
 	{
-		for (var i = 0; i < 60; i++)
+		for (var i = 0; i < targetBlocksPerHour; i++)
 		{
 			mailboxCreationTimes.push(currentTime + i * 60 * 1000);
 		}
