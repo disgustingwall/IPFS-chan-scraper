@@ -347,17 +347,6 @@ function main()
 	https = require('https');
 	
 	
-	//fill mailboxCreationTimes with dummy values to create baseline
-	var currentTime = Date.now();
-	//only if global variable is set
-	if (startQuick)
-	{
-		for (var i = 0; i < targetBlocksPerHour; i++)
-		{
-			mailboxCreationTimes.push(currentTime + i * 60 * 1000);
-		}
-	}
-	
 	
 	//fill cfgObject with defaults
 	if (!cfgObject.hasOwnProperty("ipfsAPI"))
@@ -415,22 +404,49 @@ function main()
 	console.log("final config object: " + JSON.stringify(cfgObject));
 	
 	
-	fs.readFile("/tmp/IPFSchan/mailbox/newest/newest.txt", function (err, data) {
-		if (err)
-		{
-			console.log("Error reading file that stores initial mailbox");
-			return console.log(err);
-		}
-		maybeAddAsNewest(data.toString());
-		console.log("newestMailbox: " + newestMailbox);
-	});
-	
 	
 	app = express();
 	ipfs = ipfsAPI(cfgObject["ipfsAPI"]["domain"], cfgObject["ipfsAPI"]["port"], cfgObject["ipfsAPI"]["options"]);
 	
 	
 	publishMailboxPull();
+	
+	
+	//TODO: function that pulls index JSON and compares it to previous JSON
+		//global object with each site as an element
+		//each site is an object with refresh frequency (which is the min of each board's refresh frequency) and each board as an element
+		//each board is an object with refresh frequency index, catalog, and threads as elements
+		//INDEX
+			//index is an array of JSON objects
+			//refresh site/board/1.json
+			//compare received json and old json
+			//if old[0]["threads"][0] and new["threads"][0] are not equal, mark index 1 to be refreshed
+			//compare old[0]["threads"][0] and new["threads"][1]. if they are not equal, compare to new["threads"][2], etc
+			//if the thread that was first in old[0] is still on index page 1, skip the next indented section
+			//if the thread is not still on index page 1, 
+				//refresh index page 2
+				//compare the old first thread to each thread in index 2
+				//if any new content is found, mark page 2 to be refreshed
+				//continue moving on and marking index pages until you find the old first thread or receive a 404 error
+			//refresh the index pages that have been found to have new content
+			//store new thread numbers
+			//calculate their differences with the old content
+			//store the new merkle trees / deltas
+			//move on to the next page type
+		//CATALOG
+			//catalog is a JSON object
+			//refresh the catalog
+			//store new thread numbers
+			//calculate the differences with the old content
+			//store the new merkle tree / delta (if any)
+			//move on to the next page type
+		//THREADS
+			//a thread is a string of HTML
+			//refresh the thread page
+			//calculate the differences with the old content
+			//store the new merkle tree / delta (if any)
+			//move on to the next board/site
+	
 	
 	
 	
