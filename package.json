@@ -9,16 +9,14 @@
   "dependencies": {
     "express": "4.13.3",
     "ipfs-api": "2.9.13",
-    "mkdir-p": "x",
-    "body-parser": "x",
-    "multer": "x"
+    "mkdir-p": "x"
   },
   "engines": {
     "node": "^4.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/disgustingwall/IPFSchan/"
+    "url": "https://github.com/disgustingwall/IPFS-chan-scraper/"
   },
   "keywords": [
     "node",

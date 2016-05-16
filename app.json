@@ -1,7 +1,7 @@
 {
   "name": "IPFSchan",
-  "description": "a server for IPFS messaging",
-  "repository": "https://github.com/disgustingwall/IPFSchan/",
+  "description": "a server to archive chans",
+  "repository": "https://github.com/disgustingwall/IPFS-chan-scraper/",
   "logo": "",
   "keywords": ["IPFS", "express"],
   "image": ""
