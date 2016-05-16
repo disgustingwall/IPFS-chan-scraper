@@ -1,39 +1,19 @@
-var express;
-var ipfsAPI;
-var fs;
-var mkdirp;
 var http;
 var https;
-var bodyParser;
-var multer;
-
+var ipfsAPI;
+var express;
+var fs;
+var mkdirp;
 
 
 var app;
 var ipfs;
 
 
-//control to fill mailboxCreationTimes up with dummy values at startup to increase refresh rate or not
-var startQuick = true;
-//control what the minimum and maximum block creation time is, in miliseconds
-var minimumBlockTime = 10 * 1000; //ten seconds
-var maximumBlockTime = 60 * 60 * 1000; //one hour
-//set target for number of blocks per hour
-var targetBlocksPerHour = 6;
-
-//track when emergency refreshes are allowed to prevent minting in /uploaded from triggering multiple times
-var lastMailboxRefresh = 0;
-
 var newestMailbox = "";
 
-//list of peer sites
-var postsToMerge = [];
 var mailboxesToMerge = [];
 var mailboxes = [];
-var foreignMailboxes = [];
-var mailboxCreationTimes = [];
-//blank entries are to give the site respite if it has itself in its array
-var peerSitesList = ["https://ipfschan.herokuapp.com"];
 
 function isEmpty(obj)
 {
@@ -92,127 +72,6 @@ function writeIfNotExist(file, content, callback, callbackParmeterObject)
 		{
 			callback(callbackParmeterObject);
 		}
-	});
-}
-
-function cleanMailboxCreationTimes(callback)
-{
-	if (!callback)
-	{
-		callback = function(){return true;};
-	}
-	
-	var currentTime = Date.now();
-	//remove all dates older than one hour
-	while(mailboxCreationTimes[0] < currentTime - (60 * 60 * 1000))
-	{
-		mailboxCreationTimes.splice(0, 1);
-	}
-	
-	return callback();
-}
-
-function refreshMailboxResponse (response)
-{
-	var str = '';
-	
-	//another chunk of data has been recieved, so append it to `str`
-	response.on('data', function (chunk) {
-		str += chunk;
-	});
-	
-	//the whole response has been recieved, so we just print it out here
-	response.on('end', function () {
-		console.log("string received from foreign host: " + str);
-		
-		//if foreignNewest is really an IPFS hash
-		//TODO: better checking
-		if (str.length === 46)
-		{
-			//only process if foreign newest is actually new (foreign site is active)
-			if (foreignMailboxes.indexOf(str) === -1)
-			{
-				foreignMailboxes.push(str);
-				mailboxesToMerge.push(str);
-			}
-		}
-		else
-		{
-			console.log("invalid IPFS hash received from foreign host");
-			//TODO: add a failure to a list for this host and reorganize the list to put sites with the largest number of bad responses at the end
-			//TODO: scrape result for new URLs
-		}
-	});
-}
-
-function refreshMailbox(site)
-{
-	var protocol = http;
-	
-	try
-	{
-		var siteMatches = site.match(/(((https?:\/\/)?(([\da-z\.-]+)\.?([a-z\.]{2,6})?))(:(\d+))?)([\/\w \.-]*)*\/?/);
-	}
-	catch (e)
-	{
-		console.log(e);
-	}
-	
-	if (siteMatches)
-	{
-		if (siteMatches[3] === "https://" || siteMatches[8] === "443")
-		{
-			//console.log("using https");
-			protocol = https;
-		}
-	}
-	
-	if (site)
-	{
-		console.log(site);
-		
-		try
-		{
-			var req = protocol.request(site + "/newest", refreshMailboxResponse);
-			req.on('error', function(err) {
-				console.log(err);
-			});
-			req.end();
-		}
-		catch (e)
-		{
-			console.log(e);
-		}
-	}
-	else
-	{
-		//console.log("respite...");
-	}
-}
-
-function refreshPeerSite(currentPeerSite)
-{
-	if (!currentPeerSite)
-	{
-		currentPeerSite = 0;
-	}
-	
-	cleanMailboxCreationTimes(function(){
-		if (currentPeerSite >= peerSitesList.length || currentPeerSite < 0)
-		{
-			currentPeerSite = 0;
-		}
-		
-		
-		if (peerSitesList.length > 0)
-		{
-			refreshMailbox(peerSitesList[currentPeerSite]);
-		}
-		
-		//delay devided by 2 to be twice as fast
-		var delay = Math.ceil((Math.min(maximumBlockTime, Math.ceil(((60 * 60 * 1000 / targetBlocksPerHour) - minimumBlockTime) * ((mailboxCreationTimes.length) / targetBlocksPerHour) + minimumBlockTime)) + 1) / 2);
-		
-		return setTimeout(refreshPeerSite, delay, currentPeerSite + 1);
 	});
 }
 
@@ -321,78 +180,13 @@ function createMailboxCallback()
 	}
 }
 
+//TODO: create functions for refreshing each type of object (index, catalog, thread)
 function createMailbox()
 {
-	//clean mailboxCreationTimes
-	return cleanMailboxCreationTimes(function(){
-		createMailboxCallback();
-		
-		//create new mailbox slower if there are many blocks recently, faster if there are few
-		//all in milliseconds, the average block time minus the minimum, times the target number of blocks devided by the actual number of blocks, plus the minimum block time, plus one
-		//average block time is calculated by taking one hour in miliseconds and deviding it by the target blocks per hour
-		//minimum time is subtracted from average time so that if the number of blocks is equal to the target, the final sum is equal to averageBlockTime
-		//mailboxCreationTimes.length / targetBlocksPerHour is equal to one if the target is met, approaches zero as the number of blocks dwindles, and approaches infinity as the number of blocks increase
-		//always add one at the very end to prevent a delay of zero
-		var delay = Math.min(maximumBlockTime, Math.ceil(((60 * 60 * 1000 / targetBlocksPerHour) - minimumBlockTime) * ((mailboxCreationTimes.length) / targetBlocksPerHour) + minimumBlockTime)) + 1;
-		
-		
-		return setTimeout(createMailbox, delay);
-	});
-}
-
-function shouldItBeFile(data, htmlResponse, htmlRequest)
-{
-	var htmlUrlInfo = htmlRequest.originalUrl.toString().match(/(\/ipfs\/(\w{46}))([\.](\w*))?/);
+	//10 seconds in miliseconds
+	var delay = 10 * 1000;
 	
-	//no file extensions - just serve it
-	if (!htmlUrlInfo || !htmlUrlInfo[3])
-	{
-		htmlResponse.end(data.toString());
-	}
-	else
-	//has a dot, but nothing else
-	if (htmlUrlInfo[3] !== "" && htmlUrlInfo[4] === "")
-	{
-		htmlResponse.writeHead(302, {'Location': 'http://' + htmlRequest.get('host') + htmlUrlInfo[1]});
-		htmlResponse.end();
-	}
-	else
-	{
-		var testing = false;
-		var isExtremelyBlocking = true;
-		
-		if (testing || !isExtremelyBlocking)
-		{
-			var dataInfo = data.match(/data:(.+\/(.+));base64,(.*)/);
-			
-			if (!dataInfo)
-			{
-				htmlResponse.end(data);
-			}
-			else
-			{
-				if (htmlUrlInfo[4] === dataInfo[2])
-				{
-					//create buffer with encoded file
-					var buffer = new Buffer(dataInfo[3], 'base64');
-					
-					//this only creates a form of stream, not a full file download
-					htmlResponse.writeHead(200, {'Content-Length': buffer.length, 'Content-Type': dataInfo[1]});
-					htmlResponse.end(buffer);
-				}
-				else
-				{
-					htmlResponse.writeHead(302, {'Location': 'http://' + htmlRequest.get('host') + htmlUrlInfo[1] + "." + dataInfo[2]});
-					htmlResponse.end();
-				}
-			}
-		}
-		else
-		{
-			htmlResponse.writeHead(302, {'Location': 'http://' + htmlRequest.get('host') + htmlUrlInfo[1]});
-			htmlResponse.end();
-		}
-	}
+	return setTimeout(createMailbox, delay);
 }
 
 function maybeAddAsNewest (data)
@@ -413,32 +207,8 @@ function maybeAddAsNewest (data)
 	console.log("JSON.stringify(mailboxesToMerge) " + JSON.stringify(mailboxesToMerge));
 }
 
-function addToPeerSites(newArr)
-{
-	var tempArr = peerSitesList;
-	
-	for(var i = 0; i < newArr.length; i++)
-	{
-		tempArr.push(newArr[i]);
-	}
-	
-	//remove duplicates
-	tempArr = tempArr.filter(function(element, position, array) {
-		return array.indexOf(element) === position;
-	});
-	
-	//remove blanks
-	tempArr = tempArr.filter(function(element, position, array) {
-		if (element.length === 0)
-		{
-			return false;
-		}
-		return true;
-	});
-	
-	peerSitesList = tempArr;
-}
-
+//TODO: rename
+//TODO: change target from ipfschan to ipfs-chan-scraper
 function publishMailboxPull(callback)
 {
 	var addResultToLists = false;
@@ -459,7 +229,6 @@ function publishMailboxPull(callback)
 			if (addResultToLists)
 			{
 				maybeAddAsNewest(publishedObject["IPFSchan"]["newestMailbox"]);
-				addToPeerSites(publishedObject["IPFSchan"]["peerSites"]);
 			}
 		}
 		catch (e)
@@ -522,6 +291,8 @@ function publishMailboxPull(callback)
 	});
 }
 
+//TODO: rename
+//TODO: change ipfschan to ipfs-chan-scraper
 function publishMailboxPush()
 {
 	//pull current object to preserve unrelated information
@@ -574,8 +345,6 @@ function main()
 	mkdirp = require("mkdir-p");
 	http = require('http');
 	https = require('https');
-	bodyParser = require('body-parser');
-	multer = require('multer');
 	
 	
 	//fill mailboxCreationTimes with dummy values to create baseline
@@ -664,139 +433,14 @@ function main()
 	publishMailboxPull();
 	
 	
-	//add at least one post (only the empty hash) so that /newest always has content
-	postsToMerge.push("QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH");
-	
-	if (lastMailboxRefresh < Date.now())
-	{
-		lastMailboxRefresh = Date.now() + 10 * 1000
-		setTimeout(createMailboxCallback, 10 * 1000);
-	}
-	
-	
-	
-	//start auto-refresh from peer sites
-	refreshPeerSite();
-	//start creating mailboxes
-	createMailbox();
-	
-	
 	
 	app.set('port', (process.env.PORT || 12462));
 	
-	app.use(bodyParser.json());
-	app.use(bodyParser.urlencoded({ extended: true }));
 	
 	
-	var upload = multer();
 	
-	app.post('/uploaded', upload.array(), function(req, res, next) {
-		console.log(req.body);
-		console.log(JSON.stringify(req.body.postText));
-		
-		var htmlRequest = req;
-		var htmlResponse = res;
-		
-		var responseObject = {};
-		
-		
-		if (htmlRequest.headers.origin)
-		{
-			if (!(htmlRequest.headers.origin === ""))
-			{
-				//TODO: check if origin is spamming, in which case don't add this header or deny the request
-				htmlResponse.setHeader('Access-Control-Allow-Origin', htmlRequest.headers.origin);
-			}
-		}
-		
-		
-		//compile postText and add to IPFS
-		var postText = "";
-		
-		if (htmlRequest.body.postText)
-		{
-			postText = postText + htmlRequest.body.postText;
-		}
-		
-		//scrape postText for URLs and add them to peerSitesList
-		//TODO: better URL regex
-		newURLmatch = postText.match(/(((https?:\/\/)?(([\da-z\.-]+)\.([a-z\.]{2,6})))(:(\d+))?)([\/\w \.-]*)*\/?/g);
-		
-		if (newURLmatch)
-		{
-			newURLmatch.forEach(function(site, siteNumber) {
-				var siteNormalized = site.replace(/(((https?:\/\/)?(([\da-z\.-]+)\.([a-z\.]{2,6})))(:(\d+))?)([\/\w \.-]*)*\/?/, "$1");
-				var protocol = "";
-				
-				siteNormalizedMatches = siteNormalized.match(/(((https?:\/\/)?(([\da-z\.-]+)\.([a-z\.]{2,6})))(:(\d+))?)([\/\w \.-]*)*\/?/);
-				
-				if (siteNormalizedMatches[3] !== "https://" && siteNormalizedMatches[3] !== "http://")
-				{
-					siteNormalized = "http://" + siteNormalized;
-				}
-				
-				peerSitesList.push(siteNormalized);
-			});
-			
-			//remove duplicates
-			peerSitesList = peerSitesList.filter(function(element, position, array) {
-				return array.indexOf(element) === position;
-			});
-			
-			console.log(JSON.stringify(peerSitesList));
-		}
-		
-		
-		ipfs.add(new Buffer(postText.toString()), function(err, res) {
-			if(err || !res)
-			{
-				responseObject["err"] = "Error adding post text to IPFS";
-				
-				htmlResponse.end(JSON.stringify(responseObject));
-				
-				//TODO: save text for later upload
-				
-				return console.error(err);
-			}
-			
-			
-			var textResponseArray = [];
-			
-			var textResponse = res;
-			
-			
-			textResponse.forEach(function(text, textNumber) {
-				postsToMerge.push(text["Hash"]);
-				responseObject["t"] = text["Hash"];
-			});
-			
-			
-			
-			htmlResponse.end(JSON.stringify(responseObject));
-			
-			
-			if (lastMailboxRefresh < Date.now())
-			{
-				lastMailboxRefresh = Date.now() + 10 * 1000
-				//temporarily step up refresh mailbox rate temporarily to get new posts into circulation
-				setTimeout(createMailboxCallback, 10 * 1000);
-			}
-		});
-		
-	});
 	
-	app.get('/upload.html', function(req, res) {
-		//TODO: add upload.html to IPFS occasionally and store hash to redirect to
-		res.sendFile('upload.html', { root: __dirname + "/../client/"});
-	});
 	
-	app.get(/upload/, function(req, res) {
-		res.writeHead(302, {
-			'Location': 'http://' + req.get('host') + '/upload.html'
-			//add other headers here...
-		});
-		res.end();
-	});
 	
 	app.get(/newest/, function(request, response) {
 		if (request.headers.origin)
@@ -855,13 +499,13 @@ function main()
 					});
 					
 					res.on('end', function() {
-						shouldItBeFile(string, htmlResponse, htmlRequest);
+						htmlResponse.end(string.toString());
 					});
 				}
 				else
 				{
 					// Returned as a string
-					shouldItBeFile(res, htmlResponse, htmlRequest);
+					htmlResponse.end(res.toString());
 				}
 			});
 		}
@@ -871,20 +515,18 @@ function main()
 		var HTMLrequest = req;
 		var HTMLresponse = res;
 		
-		//TODO: add aes.js to ipfs
-		fs.readFile(__dirname + "/../client/aes.js", function (err, data) {
+		
+		//add index.html to ipfs and redirect client to that object
+		fs.readFile(__dirname + "/../client/index.html", function (err, data) {
 			if (err)
 			{
-				console.log("Error reading aes.js");
+				console.log("Error reading index.html");
 				
-				HTMLresponse.writeHead(302, {
-					'Location': 'http://' + req.get('host') + '/upload.html'
-					//add other headers here...
-				});
+				HTMLresponse.writeHead(500);
 				
 				//TODO: just write something so that onion.city works
 				//TODO: does the empty string count?
-				HTMLresponse.end("Sorry, but the aes.js library cannot be found. Redirecting you to the generic upload page");
+				HTMLresponse.end("Sorry, but the index page cannot be found. This is an internal server error due to a file being unreadable or not present");
 				
 				return console.log(err);
 			}
@@ -892,74 +534,31 @@ function main()
 			ipfs.add(new Buffer(data.toString()), function(err, res) {
 				if(err || !res)
 				{
-					console.log("error adding aes.js to IPFS");
+					console.log("error adding index.html to IPFS");
+					
+					HTMLresponse.writeHead(500);
+					
+					//TODO: just write something so that onion.city works
+					//TODO: does the empty string count?
+					HTMLresponse.end("Sorry, but something seems to be wrong with the index page or my IPFS connection. This is an internal server error due to a file being unreadable or not present");
+					
+					return console.error(err);
+				}
+				
+				var IPFSResponse = res;
+				
+				
+				return IPFSResponse.forEach(function(element, elementNumber) {
+					console.log("redirecting index to " + "/ipfs/" + element.Hash.toString());
 					
 					HTMLresponse.writeHead(302, {
-						'Location': 'http://' + req.get('host') + '/upload.html'
+						'Location': 'http://' + req.get('host') + '/ipfs/' + element.Hash.toString()
 						//add other headers here...
 					});
 					
 					//TODO: just write something so that onion.city works
 					//TODO: does the empty string count?
-					HTMLresponse.end("Sorry, but something seems to be wrong with the aes javascript file or my IPFS connection. Redirecting you to the generic upload page");
-					
-					return console.error(err);
-				}
-				
-				//add index.html to ipfs and redirect client to that object
-				fs.readFile(__dirname + "/../client/index.html", function (err, data) {
-					if (err)
-					{
-						console.log("Error reading index.html");
-						
-						HTMLresponse.writeHead(302, {
-							'Location': 'http://' + req.get('host') + '/upload.html'
-							//add other headers here...
-						});
-						
-						//TODO: just write something so that onion.city works
-						//TODO: does the empty string count?
-						HTMLresponse.end("Sorry, but the index page cannot be found. Redirecting you to the generic upload page");
-						
-						return console.log(err);
-					}
-					
-					ipfs.add(new Buffer(data.toString()), function(err, res) {
-						if(err || !res)
-						{
-							console.log("error adding index.html to IPFS");
-							
-							HTMLresponse.writeHead(302, {
-								'Location': 'http://' + req.get('host') + '/upload.html'
-								//add other headers here...
-							});
-							
-							//TODO: just write something so that onion.city works
-							//TODO: does the empty string count?
-							HTMLresponse.end("Sorry, but something seems to be wrong with the index page or my IPFS connection. Redirecting you to the generic upload page");
-							
-							return console.error(err);
-						}
-						
-						//add at least one post (only the empty hash) so that /newest always has content
-						postsToMerge.push("QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH");
-						
-						var IPFSResponse = res;
-						
-						
-						return IPFSResponse.forEach(function(element, elementNumber) {
-							console.log("redirecting index to " + "/ipfs/" + element.Hash.toString());
-							
-							HTMLresponse.writeHead(302, {
-								'Location': 'http://' + req.get('host') + '/ipfs/' + element.Hash.toString()
-								//add other headers here...
-							});
-							
-							//TODO: just write something so that onion.city works
-							//TODO: does the empty string count?
-							return HTMLresponse.end("");
-						});
-					});
+					return HTMLresponse.end("");
 				});
 			});
 		});
