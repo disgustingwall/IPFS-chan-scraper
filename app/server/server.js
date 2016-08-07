@@ -411,6 +411,19 @@ function main()
 	
 	publishMailboxPull();
 	
+	//TODO: global refresh queue
+		//assume that there have been 100 refreshes
+		//subtract current average time from actual refresh time. this will result in a positive number if the page took longer than average to get new content, and negative if it took shorter than average to get new content
+		//devide the result by 100
+		//add the result to the current average time, and set that as the new average time
+		//have a default value to start out with
+		//after a page is refreshed, add that page to the end of the queue with a target time of the current time plus the average refresh time, passed through the Math.ceil function with the current time plus one second for non-threads and the current time plus ten seconds for threads
+		//sort the list
+			//sort the list such that all elements below the midpoint are greater than the midpoint's time, and all elements above the midpoint are less than the midpoint's time. this can be acheived by comparing the lowest element with the midpoint and either leaving it where it is or moving it above the midpoint
+			//sort the top 50%, rounded up, of the list
+			//sort the top 25%...
+			//sort the top 32, 16, 8, 4, 2
+			//refresh the top
 	
 	//TODO: function that pulls index JSON and compares it to previous JSON
 		//global object with each site as an element
